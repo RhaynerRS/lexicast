@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+data/
+.env
+
+# .NET / Visual Studio (win-ui)
+bin/
+obj/
+.vs/
+*.user
+*.suo

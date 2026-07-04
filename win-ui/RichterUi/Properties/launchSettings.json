@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "RichterUi (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "RichterUi (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}

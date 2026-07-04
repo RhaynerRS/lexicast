@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "RichterUi.Tests (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "RichterUi.Tests (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}
