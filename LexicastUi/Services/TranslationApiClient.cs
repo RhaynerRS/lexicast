@@ -23,6 +23,7 @@ public sealed class TranslationApiClient
         string targetLanguage,
         int concurrency,
         string? userPrompt,
+        SubmitKind submitKind,
         CancellationToken ct = default)
     {
         await using var fileStream = File.OpenRead(filePath);
@@ -32,6 +33,7 @@ public sealed class TranslationApiClient
         content.Add(fileContent, "file", Path.GetFileName(filePath));
         content.Add(new StringContent(targetLanguage), "target_language");
         content.Add(new StringContent(concurrency.ToString(CultureInfo.InvariantCulture)), "concurrency");
+        content.Add(new StringContent(submitKind.ToString()), "submit_kind");
         if (!string.IsNullOrWhiteSpace(userPrompt))
         {
             content.Add(new StringContent(userPrompt), "user_prompt");
@@ -45,6 +47,13 @@ public sealed class TranslationApiClient
     public async Task<TranslationJob> GetJobAsync(string jobId, CancellationToken ct = default)
     {
         using var response = await _httpClient.GetAsync(CombineUrl($"/translations/{jobId}"), ct);
+        await EnsureSuccessAsync(response, ct);
+        return await ReadJsonAsync<TranslationJob>(response, ct);
+    }
+
+    public async Task<TranslationJob> CancelJobAsync(string jobId, CancellationToken ct = default)
+    {
+        using var response = await _httpClient.PostAsync(CombineUrl($"/translations/{jobId}/cancel"), content: null, ct);
         await EnsureSuccessAsync(response, ct);
         return await ReadJsonAsync<TranslationJob>(response, ct);
     }

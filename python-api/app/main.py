@@ -68,6 +68,17 @@ async def get_translation(job_id: str):
     return job.to_public_dict()
 
 
+@app.post("/translations/{job_id}/cancel")
+async def cancel_translation(job_id: str):
+    job = job_manager.get(job_id)
+    if job is None:
+        raise HTTPException(404, "Job not found")
+    result = job_manager.cancel(job)
+    if result is None:
+        raise HTTPException(409, f"Job cannot be cancelled (status={job.status})")
+    return job.to_public_dict()
+
+
 @app.get("/translations/{job_id}/events")
 async def stream_translation_events(job_id: str):
     job = job_manager.get(job_id)
@@ -78,7 +89,7 @@ async def stream_translation_events(job_id: str):
         while True:
             data = job.to_public_dict()
             yield f"data: {json.dumps(data)}\n\n"
-            if data["status"] in ("completed", "failed"):
+            if data["status"] in ("completed", "failed", "cancelled"):
                 break
             await asyncio.sleep(1)
 

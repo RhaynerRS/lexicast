@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import threading
 import uuid
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
@@ -11,17 +11,25 @@ from epub_translator import LLM, SubmitKind, translate
 
 from .config import settings
 
+CANCELLABLE_STATUSES = ("queued", "running", "cancelling")
+
+
+class _JobCancelled(Exception):
+    pass
+
 
 @dataclass
 class JobState:
     id: str
     source_filename: str
-    status: str = "queued"  # queued | running | completed | failed
+    status: str = "queued"  # queued | running | cancelling | completed | failed | cancelled
     progress: float = 0.0
     error: Optional[str] = None
     last_warning: Optional[str] = None
     source_path: Optional[Path] = None
     target_path: Optional[Path] = None
+    future: Optional[Future] = field(default=None, repr=False)
+    cancel_event: threading.Event = field(default_factory=threading.Event, repr=False)
     lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
 
     def to_public_dict(self) -> dict:
@@ -56,7 +64,41 @@ class JobManager:
         user_prompt: Optional[str],
         submit_kind: str,
     ) -> None:
-        self._executor.submit(self._run, job, target_language, concurrency, user_prompt, submit_kind)
+        job.future = self._executor.submit(
+            self._run, job, target_language, concurrency, user_prompt, submit_kind
+        )
+
+    def cancel(self, job: JobState) -> Optional[str]:
+        """Request cancellation of a job and discard any work done so far.
+
+        Returns the resulting status, or None if the job had already finished
+        and can no longer be cancelled.
+        """
+        with job.lock:
+            if job.status not in CANCELLABLE_STATUSES:
+                return None
+            job.cancel_event.set()
+            was_queued = job.status == "queued"
+
+        stopped_before_start = was_queued and job.future is not None and job.future.cancel()
+
+        with job.lock:
+            if stopped_before_start:
+                job.status = "cancelled"
+            elif job.status not in ("completed", "failed", "cancelled"):
+                job.status = "cancelling"
+            result_status = job.status
+
+        if stopped_before_start:
+            self._discard_job_files(job)
+
+        return result_status
+
+    @staticmethod
+    def _discard_job_files(job: JobState) -> None:
+        for path in (job.target_path, job.source_path):
+            if path is not None:
+                path.unlink(missing_ok=True)
 
     def _run(
         self,
@@ -70,6 +112,8 @@ class JobManager:
             job.status = "running"
 
         def on_progress(progress: float) -> None:
+            if job.cancel_event.is_set():
+                raise _JobCancelled()
             with job.lock:
                 job.progress = progress
 
@@ -93,6 +137,7 @@ class JobManager:
                 target_path=job.target_path,
                 target_language=target_language,
                 submit=SubmitKind[submit_kind],
+                max_group_tokens=4000,
                 user_prompt=user_prompt,
                 concurrency=concurrency,
                 llm=llm,
@@ -100,8 +145,17 @@ class JobManager:
                 on_fill_failed=on_fill_failed,
             )
             with job.lock:
-                job.progress = 1.0
-                job.status = "completed"
+                if job.status == "cancelling":
+                    job.status = "cancelled"
+                else:
+                    job.progress = 1.0
+                    job.status = "completed"
+            if job.status == "cancelled":
+                self._discard_job_files(job)
+        except _JobCancelled:
+            with job.lock:
+                job.status = "cancelled"
+            self._discard_job_files(job)
         except Exception as exc:
             with job.lock:
                 job.status = "failed"

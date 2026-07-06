@@ -2,74 +2,86 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             mc:Ignorable="d" d:DesignWidth="640" d:DesignHeight="720"
+             mc:Ignorable="d" d:DesignWidth="960" d:DesignHeight="680"
              x:Class="LexicastUi.Views.UploadView">
 
     <ScrollViewer VerticalScrollBarVisibility="Auto">
-        <StackPanel Margin="40,32" Spacing="20" MaxWidth="640" HorizontalAlignment="Center">
+        <StackPanel Margin="40,32" Spacing="24" MaxWidth="640" HorizontalAlignment="Center">
 
-            <StackPanel Spacing="4">
-                <TextBlock Text="Lexicast EPUB Translator" FontSize="28" FontWeight="SemiBold" />
-                <TextBlock Text="Envie um arquivo .epub para traduzir usando a API."
+            <StackPanel Spacing="6">
+                <TextBlock Text="NOVA TRADUÇÃO" Classes="Eyebrow" />
+                <TextBlock Text="Traduza seu EPUB" FontSize="28" FontWeight="Bold" />
+                <TextBlock Text="Envie um arquivo, escolha o idioma de destino e deixe a Lexicast cuidar do resto."
                            Opacity="0.7" TextWrapping="Wrap" />
             </StackPanel>
 
-            <!-- File selection -->
-            <StackPanel Spacing="8">
-                <TextBlock Text="Arquivo EPUB" FontWeight="SemiBold" />
-                <Grid ColumnDefinitions="*,Auto">
-                    <Border Grid.Column="0"
-                            BorderBrush="Gray" BorderThickness="1" CornerRadius="4" Padding="12,8">
-                        <TextBlock x:Name="SelectedFileText"
-                                   Text="Nenhum arquivo selecionado"
-                                   TextTrimming="CharacterEllipsis"
-                                   VerticalAlignment="Center" />
+            <Border Classes="Card" Padding="28">
+                <StackPanel Spacing="22">
+
+                    <!-- File selection -->
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="Arquivo EPUB" Classes="FieldLabel" />
+                        <Grid ColumnDefinitions="*,Auto">
+                            <Border Grid.Column="0"
+                                    Background="{DynamicResource AppBackgroundBrush}"
+                                    BorderBrush="{DynamicResource CardBorderBrush}"
+                                    BorderThickness="1" CornerRadius="10" Padding="14,10">
+                                <TextBlock x:Name="SelectedFileText"
+                                           Text="Nenhum arquivo selecionado"
+                                           TextTrimming="CharacterEllipsis"
+                                           VerticalAlignment="Center" />
+                            </Border>
+                            <Button Grid.Column="1" Classes="Secondary" Content="Selecionar..." Margin="12,0,0,0" Click="PickFileButton_Click" />
+                        </Grid>
+                    </StackPanel>
+
+                    <!-- Target language -->
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="Idioma de destino" Classes="FieldLabel" />
+                        <TextBox x:Name="TargetLanguageBox" PlaceholderText="ex: pt-BR, en, es" Text="pt-BR" />
+                    </StackPanel>
+
+                    <!-- Submit kind -->
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="Modo de inserção" Classes="FieldLabel" />
+                        <ComboBox x:Name="SubmitKindBox" SelectedIndex="2" HorizontalAlignment="Left" Width="220">
+                            <ComboBoxItem Content="REPLACE" />
+                            <ComboBoxItem Content="APPEND_TEXT" />
+                            <ComboBoxItem Content="APPEND_BLOCK" />
+                        </ComboBox>
+                    </StackPanel>
+
+                    <!-- Concurrency -->
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="Concorrência" Classes="FieldLabel" />
+                        <NumericUpDown x:Name="ConcurrencyBox"
+                                       Value="1" Minimum="1" Maximum="32" Increment="1"
+                                       HorizontalAlignment="Left" Width="160" />
+                    </StackPanel>
+
+                    <!-- Optional prompt -->
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="Instruções adicionais (opcional)" Classes="FieldLabel" />
+                        <TextBox x:Name="UserPromptBox"
+                                 PlaceholderText="ex: mantenha os nomes próprios no idioma original"
+                                 AcceptsReturn="True" TextWrapping="Wrap"
+                                 Height="80" />
+                    </StackPanel>
+
+                    <Border x:Name="ErrorBanner" Classes="Banner Error" IsVisible="False">
+                        <TextBlock x:Name="ErrorText" Foreground="#E5484D" TextWrapping="Wrap" />
                     </Border>
-                    <Button Grid.Column="1" Content="Selecionar..." Margin="12,0,0,0" Click="PickFileButton_Click" />
-                </Grid>
-            </StackPanel>
 
-            <!-- Target language -->
-            <StackPanel Spacing="8">
-                <TextBlock Text="Idioma de destino" FontWeight="SemiBold" />
-                <TextBox x:Name="TargetLanguageBox" Watermark="ex: pt-BR, en, es" Text="pt-BR" />
-            </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <Button x:Name="TranslateButton"
+                                Content="Traduzir"
+                                Classes="accent"
+                                Click="TranslateButton_Click" />
+                        <ProgressBar x:Name="SubmitProgressBar" Width="22" Height="22" IsIndeterminate="True" IsVisible="False" />
+                    </StackPanel>
 
-            <!-- Concurrency -->
-            <StackPanel Spacing="8">
-                <TextBlock Text="Concorrência" FontWeight="SemiBold" />
-                <NumericUpDown x:Name="ConcurrencyBox"
-                               Value="1" Minimum="1" Maximum="32" Increment="1"
-                               HorizontalAlignment="Left" Width="160" />
-            </StackPanel>
-
-            <!-- Optional prompt -->
-            <StackPanel Spacing="8">
-                <TextBlock Text="Instruções adicionais (opcional)" FontWeight="SemiBold" />
-                <TextBox x:Name="UserPromptBox"
-                         Watermark="ex: mantenha os nomes próprios no idioma original"
-                         AcceptsReturn="True" TextWrapping="Wrap"
-                         Height="80" />
-            </StackPanel>
-
-            <!-- API base URL -->
-            <StackPanel Spacing="8">
-                <TextBlock Text="URL da API" FontWeight="SemiBold" />
-                <TextBox x:Name="ApiUrlBox" Text="http://localhost:8000" />
-            </StackPanel>
-
-            <Border x:Name="ErrorBanner" Background="#33FF0000" BorderBrush="Red" BorderThickness="1"
-                    CornerRadius="4" Padding="12,8" IsVisible="False">
-                <TextBlock x:Name="ErrorText" Foreground="Red" TextWrapping="Wrap" />
+                </StackPanel>
             </Border>
-
-            <StackPanel Orientation="Horizontal" Spacing="12">
-                <Button x:Name="TranslateButton"
-                        Content="Traduzir"
-                        Classes="accent"
-                        Click="TranslateButton_Click" />
-                <ProgressBar x:Name="SubmitProgressBar" Width="24" Height="24" IsIndeterminate="True" IsVisible="False" />
-            </StackPanel>
 
         </StackPanel>
     </ScrollViewer>

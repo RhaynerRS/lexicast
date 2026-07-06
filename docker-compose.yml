@@ -10,7 +10,7 @@ services:
       - api_data:/data
     environment:
       - OLLAMA_BASE_URL=http://ollama:11434/v1
-      - OLLAMA_MODEL=qwen3
+      - OLLAMA_MODEL=qwen3:0.6b-q4_K_M
       - OLLAMA_API_KEY=ollama
       - TOKEN_ENCODING=cl100k_base
       - STORAGE_DIR=/data
@@ -33,6 +33,13 @@ services:
       - "/dev/dri:/dev/dri"
     environment:
       - HSA_OVERRIDE_GFX_VERSION=10.3.0
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        ollama serve &
+        until ollama list >/dev/null 2>&1; do sleep 1; done
+        ollama pull qwen3:0.6b-q4_K_M
+        wait
     restart: unless-stopped
 
 volumes:

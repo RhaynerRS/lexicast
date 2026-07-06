@@ -91,7 +91,21 @@
           "host": ["{{base_url}}"],
           "path": ["translations", "{{job_id}}"]
         },
-        "description": "Returns job_id, status (queued|running|completed|failed), progress, error and warning."
+        "description": "Returns job_id, status (queued|running|cancelling|completed|failed|cancelled), progress, error and warning."
+      },
+      "response": []
+    },
+    {
+      "name": "Cancel translation",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/translations/{{job_id}}/cancel",
+          "host": ["{{base_url}}"],
+          "path": ["translations", "{{job_id}}", "cancel"]
+        },
+        "description": "Requests cancellation of a queued or running job and discards any partial output. Returns the job with status 'cancelled' (if it hadn't started yet) or 'cancelling' (if it was already running, until the background worker notices and finalizes it as 'cancelled'). Returns 409 if the job already completed, failed, or was cancelled."
       },
       "response": []
     },

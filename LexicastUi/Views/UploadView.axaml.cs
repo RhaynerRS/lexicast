@@ -3,6 +3,7 @@ using System.IO;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
+using LexicastUi.Models;
 
 namespace LexicastUi.Views;
 
@@ -58,24 +59,18 @@ public partial class UploadView : UserControl
             return;
         }
 
-        string apiUrl = ApiUrlBox.Text?.Trim() ?? string.Empty;
-        if (string.IsNullOrEmpty(apiUrl))
-        {
-            ShowError("Informe a URL da API.");
-            return;
-        }
-
         int concurrency = (int)(ConcurrencyBox.Value ?? 1);
         string? userPrompt = string.IsNullOrWhiteSpace(UserPromptBox.Text) ? null : UserPromptBox.Text!.Trim();
+        string submitKindText = (SubmitKindBox.SelectedItem as ComboBoxItem)?.Content as string ?? nameof(SubmitKind.APPEND_BLOCK);
+        var submitKind = Enum.Parse<SubmitKind>(submitKindText);
 
         TranslateButton.IsEnabled = false;
         SubmitProgressBar.IsVisible = true;
 
         try
         {
-            App.ApiClient.BaseUrl = apiUrl;
             var job = await App.ApiClient.CreateTranslationAsync(
-                _selectedFilePath, targetLanguage, concurrency, userPrompt);
+                _selectedFilePath, targetLanguage, concurrency, userPrompt, submitKind);
 
             _host.ShowProgress(job.JobId, Path.GetFileName(_selectedFilePath));
         }

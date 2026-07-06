@@ -15,6 +15,7 @@ public partial class ProgressView : UserControl
     private readonly string _jobId;
     private readonly string _sourceFileName;
     private bool _isPolling;
+    private bool _cancelRequested;
 
     public ProgressView(INavigationHost host, string jobId, string sourceFileName)
     {
@@ -49,7 +50,7 @@ public partial class ProgressView : UserControl
             TranslationJob job = await App.ApiClient.GetJobAsync(_jobId);
             ApplyJobState(job);
 
-            if (job.IsCompleted || job.IsFailed)
+            if (job.IsCompleted || job.IsFailed || job.IsCancelled)
             {
                 _pollTimer.Stop();
             }
@@ -84,6 +85,10 @@ public partial class ProgressView : UserControl
         }
 
         DownloadButton.IsEnabled = job.IsCompleted;
+
+        CancelButton.IsVisible = job.IsCancellable || job.IsCancelling;
+        CancelButton.IsEnabled = job.IsCancellable && !_cancelRequested;
+        CancelButton.Content = job.IsCancelling ? "Cancelando..." : "Cancelar tradução";
     }
 
     private async void DownloadButton_Click(object? sender, RoutedEventArgs e)
@@ -120,6 +125,28 @@ public partial class ProgressView : UserControl
         {
             DownloadButton.IsEnabled = true;
             DownloadProgressBar.IsVisible = false;
+        }
+    }
+
+    private async void CancelButton_Click(object? sender, RoutedEventArgs e)
+    {
+        if (_cancelRequested)
+        {
+            return;
+        }
+
+        _cancelRequested = true;
+        CancelButton.IsEnabled = false;
+        CancelButton.Content = "Cancelando...";
+        try
+        {
+            TranslationJob job = await App.ApiClient.CancelJobAsync(_jobId);
+            ApplyJobState(job);
+        }
+        catch (Exception ex)
+        {
+            _cancelRequested = false;
+            ShowError(ex.Message);
         }
     }
 

@@ -22,4 +22,10 @@ public sealed class TranslationJob
     public bool IsCompleted => Status == "completed";
 
     public bool IsFailed => Status == "failed";
+
+    public bool IsCancelling => Status == "cancelling";
+
+    public bool IsCancelled => Status == "cancelled";
+
+    public bool IsCancellable => Status is "queued" or "running";
 }

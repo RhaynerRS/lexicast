@@ -30,11 +30,7 @@ docker compose up -d
 
 The `ollama` service is pulled with the `rocm` image tag and mounts `/dev/kfd` and `/dev/dri`, targeting AMD GPUs (`HSA_OVERRIDE_GFX_VERSION=10.3.0`). Adjust the image/devices in `docker-compose.yml` if you're on NVIDIA/CPU.
 
-On first run, pull the model into the `ollama` container:
-
-```bash
-docker compose exec ollama ollama pull qwen3
-```
+On startup, the `ollama` container automatically pulls `qwen3:0.6b-q4_K_M` (a small, quantized model) once its server is ready — no manual step needed. Change the tag in `docker-compose.yml` (and `OLLAMA_MODEL` in the `api` service) if you want a different Qwen3 size/quantization.
 
 ### Running the API locally (development)
 
@@ -110,7 +106,7 @@ Translation jobs run in-process on a thread pool (`JOB_WORKERS`) inside the API 
 
 ```env
 OLLAMA_BASE_URL=http://localhost:11434/v1
-OLLAMA_MODEL=qwen3
+OLLAMA_MODEL=qwen3:0.6b-q4_K_M
 OLLAMA_API_KEY=ollama
 TOKEN_ENCODING=cl100k_base
 STORAGE_DIR=./data
@@ -120,7 +116,7 @@ JOB_WORKERS=4
 | Variable | Description |
 |----------|--------------|
 | `OLLAMA_BASE_URL` | OpenAI-compatible Ollama endpoint (must end in `/v1`) |
-| `OLLAMA_MODEL` | Model served by Ollama (default `qwen3`) |
+| `OLLAMA_MODEL` | Model served by Ollama (default `qwen3:0.6b-q4_K_M`) |
 | `OLLAMA_API_KEY` | Dummy key required by the LLM client lib; Ollama ignores it |
 | `TOKEN_ENCODING` | `tiktoken` encoding used to estimate tokens when batching segments |
 | `STORAGE_DIR` | Where uploaded/translated EPUBs are stored |
@@ -132,6 +128,6 @@ JOB_WORKERS=4
 |-------|------------|
 | API | FastAPI + Uvicorn |
 | Translation engine | [epub-translator](https://github.com/oomol-lab/epub-translator) |
-| LLM runtime | Ollama (Qwen3 by default, ROCm image) |
+| LLM runtime | Ollama (Qwen3 0.6B Q4_K_M by default, ROCm image) |
 | Desktop client | Avalonia UI (.NET 10, cross-platform) |
 | Packaging | Docker / Docker Compose |
