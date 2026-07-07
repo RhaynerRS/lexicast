@@ -15,6 +15,9 @@ from .auth import router as auth_router
 from .config import settings
 from .db import User
 from .jobs import TERMINAL_STATUSES, JobState, job_manager
+from .payments import create_checkout_session
+from .payments import router as billing_router
+from .pricing import estimate_billable_tokens, estimate_price_cents
 
 SSE_HEARTBEAT_SECONDS = 15
 
@@ -37,6 +40,7 @@ if settings.frontend_origins:
     )
 
 app.include_router(auth_router)
+app.include_router(billing_router)
 
 
 @app.on_event("startup")
@@ -77,6 +81,19 @@ async def create_translation(
 
     with job.source_path.open("wb") as out_file:
         shutil.copyfileobj(file.file, out_file)
+
+    if settings.payment_enabled:
+        estimated_tokens = estimate_billable_tokens(job.source_path)
+        price_cents = estimate_price_cents(estimated_tokens)
+        job_manager.mark_awaiting_payment(
+            job,
+            estimated_tokens=estimated_tokens,
+            price_cents=price_cents,
+            currency=settings.stripe_currency,
+        )
+        checkout_session = create_checkout_session(job)
+        job_manager.set_stripe_checkout_session(job, checkout_session.id)
+        return {"job_id": job.id, "status": job.status, "checkout_url": checkout_session.url}
 
     job_manager.submit(
         job,
