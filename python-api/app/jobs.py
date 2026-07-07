@@ -36,6 +36,8 @@ class JobState:
     last_warning: Optional[str] = None
     source_path: Optional[Path] = None
     target_path: Optional[Path] = None
+    owner_user_id: Optional[str] = None
+    user_prompt: Optional[str] = None
     future: Optional[Future] = field(default=None, repr=False)
     cancel_event: threading.Event = field(default_factory=threading.Event, repr=False)
     lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
@@ -54,6 +56,8 @@ class JobState:
                 "progress": round(self.progress, 4),
                 "error": self.error,
                 "warning": self.last_warning,
+                "owner_user_id": self.owner_user_id,
+                "user_prompt": self.user_prompt,
             }
 
 
@@ -94,6 +98,8 @@ class JobManager:
                 last_warning=row["warning"],
                 source_path=Path(row["source_path"]) if row["source_path"] else None,
                 target_path=Path(row["target_path"]) if row["target_path"] else None,
+                owner_user_id=row["owner_user_id"],
+                user_prompt=row["user_prompt"],
             )
             self._jobs[job.id] = job
             if status != row["status"]:
@@ -110,6 +116,8 @@ class JobManager:
         target_language: str,
         submit_kind: str,
         concurrency: int,
+        owner_user_id: Optional[str] = None,
+        user_prompt: Optional[str] = None,
     ) -> JobState:
         job_id = uuid.uuid4().hex
         job = JobState(
@@ -120,6 +128,8 @@ class JobManager:
             concurrency=concurrency,
             source_path=self.upload_dir / f"{job_id}.epub",
             target_path=self.output_dir / f"{job_id}.epub",
+            owner_user_id=owner_user_id,
+            user_prompt=user_prompt,
         )
         self._jobs[job.id] = job
         self._persist(job)
@@ -164,6 +174,8 @@ class JobManager:
                 "warning": job.last_warning,
                 "source_path": str(job.source_path) if job.source_path else None,
                 "target_path": str(job.target_path) if job.target_path else None,
+                "owner_user_id": job.owner_user_id,
+                "user_prompt": job.user_prompt,
             }
         self._store.upsert(row)
 

@@ -6,13 +6,15 @@ import shutil
 from enum import Enum
 from typing import Optional
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 
+from .auth import get_current_user
 from .auth import router as auth_router
 from .config import settings
-from .jobs import TERMINAL_STATUSES, job_manager
+from .db import User
+from .jobs import TERMINAL_STATUSES, JobState, job_manager
 
 SSE_HEARTBEAT_SECONDS = 15
 
@@ -42,6 +44,14 @@ async def _bind_job_manager_loop() -> None:
     job_manager.bind_loop(asyncio.get_running_loop())
 
 
+def _check_job_access(job: JobState, current_user: Optional[User]) -> None:
+    """404 (not 403) when the job belongs to someone else, so we don't reveal
+    that a job with this id exists."""
+    allowed_owner_id = current_user.id if current_user else None
+    if job.owner_user_id not in (None, allowed_owner_id):
+        raise HTTPException(404, "Job not found")
+
+
 @app.post("/translations", status_code=202)
 async def create_translation(
     file: UploadFile = File(...),
@@ -49,6 +59,7 @@ async def create_translation(
     concurrency: int = Form(1),
     user_prompt: Optional[str] = Form(None),
     submit_kind: SubmitKindParam = Form(SubmitKindParam.APPEND_BLOCK),
+    current_user: Optional[User] = Depends(get_current_user),
 ):
     if not file.filename or not file.filename.lower().endswith(".epub"):
         raise HTTPException(400, "File must be an .epub")
@@ -60,6 +71,8 @@ async def create_translation(
         target_language=target_language,
         submit_kind=submit_kind.value,
         concurrency=concurrency,
+        owner_user_id=current_user.id if current_user else None,
+        user_prompt=user_prompt,
     )
 
     with job.source_path.open("wb") as out_file:
@@ -77,23 +90,28 @@ async def create_translation(
 
 
 @app.get("/translations")
-async def list_translations():
-    return [job.to_public_dict() for job in job_manager.list()]
+async def list_translations(current_user: Optional[User] = Depends(get_current_user)):
+    jobs = job_manager.list()
+    if current_user is not None:
+        jobs = [job for job in jobs if job.owner_user_id == current_user.id]
+    return [job.to_public_dict() for job in jobs]
 
 
 @app.get("/translations/{job_id}")
-async def get_translation(job_id: str):
+async def get_translation(job_id: str, current_user: Optional[User] = Depends(get_current_user)):
     job = job_manager.get(job_id)
     if job is None:
         raise HTTPException(404, "Job not found")
+    _check_job_access(job, current_user)
     return job.to_public_dict()
 
 
 @app.post("/translations/{job_id}/cancel")
-async def cancel_translation(job_id: str):
+async def cancel_translation(job_id: str, current_user: Optional[User] = Depends(get_current_user)):
     job = job_manager.get(job_id)
     if job is None:
         raise HTTPException(404, "Job not found")
+    _check_job_access(job, current_user)
     result = job_manager.cancel(job)
     if result is None:
         raise HTTPException(409, f"Job cannot be cancelled (status={job.status})")
@@ -101,10 +119,11 @@ async def cancel_translation(job_id: str):
 
 
 @app.get("/translations/{job_id}/events")
-async def stream_translation_events(job_id: str):
+async def stream_translation_events(job_id: str, current_user: Optional[User] = Depends(get_current_user)):
     job = job_manager.get(job_id)
     if job is None:
         raise HTTPException(404, "Job not found")
+    _check_job_access(job, current_user)
 
     queue = job_manager.subscribe(job)
 
@@ -132,10 +151,11 @@ async def stream_translation_events(job_id: str):
 
 
 @app.get("/translations/{job_id}/download")
-async def download_translation(job_id: str):
+async def download_translation(job_id: str, current_user: Optional[User] = Depends(get_current_user)):
     job = job_manager.get(job_id)
     if job is None:
         raise HTTPException(404, "Job not found")
+    _check_job_access(job, current_user)
     if job.status != "completed":
         raise HTTPException(409, f"Job is not completed (status={job.status})")
     return FileResponse(
