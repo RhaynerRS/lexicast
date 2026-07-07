@@ -10,6 +10,7 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 
+from .auth import router as auth_router
 from .config import settings
 from .jobs import TERMINAL_STATUSES, job_manager
 
@@ -32,6 +33,8 @@ if settings.frontend_origins:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+app.include_router(auth_router)
 
 
 @app.on_event("startup")
