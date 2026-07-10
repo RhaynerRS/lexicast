@@ -14,26 +14,6 @@ class Settings:
     storage_dir: str
     job_workers: int
     frontend_origins: list[str]
-    auth_enabled: bool
-    google_auth_enabled: bool
-    github_auth_enabled: bool
-    payment_enabled: bool
-    google_client_id: str | None
-    google_client_secret: str | None
-    google_redirect_uri: str | None
-    github_client_id: str | None
-    github_client_secret: str | None
-    github_redirect_uri: str | None
-    jwt_secret: str | None
-    jwt_algorithm: str
-    jwt_expires_minutes: int
-    oauth_state_ttl_seconds: int
-    stripe_secret_key: str | None
-    stripe_webhook_secret: str | None
-    stripe_currency: str
-    price_per_1k_tokens_cents: int
-    min_charge_cents: int
-    public_base_url: str
 
 
 @dataclass(frozen=True)
@@ -109,17 +89,6 @@ _PROVIDERS: dict[str, _ProviderAdapter] = {
 }
 
 
-def _parse_bool(value: str) -> bool:
-    return value.strip().lower() in ("1", "true", "yes", "on")
-
-
-def _require_env(name: str) -> str:
-    value = os.environ.get(name)
-    if not value:
-        raise RuntimeError(f"{name} environment variable is required")
-    return value
-
-
 def _load() -> Settings:
     provider_name = os.environ.get("LLM_PROVIDER", "openai").strip().lower()
 
@@ -128,36 +97,6 @@ def _load() -> Settings:
         supported = ", ".join(sorted(_PROVIDERS))
         raise RuntimeError(f"Unsupported LLM_PROVIDER: {provider_name!r} (expected one of: {supported})")
     provider_config = adapter.resolve()
-
-    google_auth_enabled = _parse_bool(os.environ.get("GOOGLE_AUTH_ENABLED", "false"))
-    github_auth_enabled = _parse_bool(os.environ.get("GITHUB_AUTH_ENABLED", "false"))
-    # Master switch: on if login via either provider is enabled. Gates JWT
-    # verification (get_current_user) and the JWT_SECRET requirement below —
-    # it's not its own env var anymore, just the union of the two providers.
-    auth_enabled = google_auth_enabled or github_auth_enabled
-
-    payment_enabled = _parse_bool(os.environ.get("PAYMENT_ENABLED", "false"))
-    if payment_enabled and not auth_enabled:
-        raise RuntimeError("PAYMENT_ENABLED=true requires GOOGLE_AUTH_ENABLED=true or GITHUB_AUTH_ENABLED=true")
-
-    google_client_id = google_client_secret = google_redirect_uri = None
-    if google_auth_enabled:
-        google_client_id = _require_env("GOOGLE_CLIENT_ID")
-        google_client_secret = _require_env("GOOGLE_CLIENT_SECRET")
-        google_redirect_uri = _require_env("GOOGLE_REDIRECT_URI")
-
-    github_client_id = github_client_secret = github_redirect_uri = None
-    if github_auth_enabled:
-        github_client_id = _require_env("GITHUB_CLIENT_ID")
-        github_client_secret = _require_env("GITHUB_CLIENT_SECRET")
-        github_redirect_uri = _require_env("GITHUB_REDIRECT_URI")
-
-    jwt_secret = _require_env("JWT_SECRET") if auth_enabled else None
-
-    stripe_secret_key = stripe_webhook_secret = None
-    if payment_enabled:
-        stripe_secret_key = _require_env("STRIPE_SECRET_KEY")
-        stripe_webhook_secret = _require_env("STRIPE_WEBHOOK_SECRET")
 
     return Settings(
         llm_provider=provider_name,
@@ -170,26 +109,6 @@ def _load() -> Settings:
         storage_dir=os.environ.get("STORAGE_DIR", "./data"),
         job_workers=int(os.environ.get("JOB_WORKERS", "4")),
         frontend_origins=[o.strip() for o in os.environ.get("FRONTEND_ORIGIN", "").split(",") if o.strip()],
-        auth_enabled=auth_enabled,
-        google_auth_enabled=google_auth_enabled,
-        github_auth_enabled=github_auth_enabled,
-        payment_enabled=payment_enabled,
-        google_client_id=google_client_id,
-        google_client_secret=google_client_secret,
-        google_redirect_uri=google_redirect_uri,
-        github_client_id=github_client_id,
-        github_client_secret=github_client_secret,
-        github_redirect_uri=github_redirect_uri,
-        jwt_secret=jwt_secret,
-        jwt_algorithm=os.environ.get("JWT_ALGORITHM", "HS256"),
-        jwt_expires_minutes=int(os.environ.get("JWT_EXPIRES_MINUTES", "10080")),
-        oauth_state_ttl_seconds=int(os.environ.get("OAUTH_STATE_TTL_SECONDS", "600")),
-        stripe_secret_key=stripe_secret_key,
-        stripe_webhook_secret=stripe_webhook_secret,
-        stripe_currency=os.environ.get("STRIPE_CURRENCY", "usd"),
-        price_per_1k_tokens_cents=int(os.environ.get("PRICE_PER_1K_TOKENS_CENTS", "50")),
-        min_charge_cents=int(os.environ.get("MIN_CHARGE_CENTS", "50")),
-        public_base_url=os.environ.get("PUBLIC_BASE_URL", "http://localhost:8000"),
     )
 
 

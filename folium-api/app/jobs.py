@@ -14,7 +14,7 @@ from epub_translator import LLM, SubmitKind, translate
 from .config import settings
 from .db import JobStore
 
-CANCELLABLE_STATUSES = ("queued", "awaiting_payment", "running", "cancelling")
+CANCELLABLE_STATUSES = ("queued", "running", "cancelling")
 TERMINAL_STATUSES = ("completed", "failed", "cancelled")
 
 
@@ -30,19 +30,13 @@ class JobState:
     submit_kind: str = ""
     concurrency: int = 1
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    status: str = "queued"  # queued | awaiting_payment | running | cancelling | completed | failed | cancelled
+    status: str = "queued"  # queued | running | cancelling | completed | failed | cancelled
     progress: float = 0.0
     error: Optional[str] = None
     last_warning: Optional[str] = None
     source_path: Optional[Path] = None
     target_path: Optional[Path] = None
-    owner_user_id: Optional[str] = None
     user_prompt: Optional[str] = None
-    estimated_tokens: Optional[int] = None
-    price_cents: Optional[int] = None
-    currency: Optional[str] = None
-    stripe_checkout_session_id: Optional[str] = None
-    stripe_payment_status: Optional[str] = None
     future: Optional[Future] = field(default=None, repr=False)
     cancel_event: threading.Event = field(default_factory=threading.Event, repr=False)
     lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
@@ -61,12 +55,7 @@ class JobState:
                 "progress": round(self.progress, 4),
                 "error": self.error,
                 "warning": self.last_warning,
-                "owner_user_id": self.owner_user_id,
                 "user_prompt": self.user_prompt,
-                "estimated_tokens": self.estimated_tokens,
-                "price_cents": self.price_cents,
-                "currency": self.currency,
-                "stripe_payment_status": self.stripe_payment_status,
             }
 
 
@@ -107,13 +96,7 @@ class JobManager:
                 last_warning=row["warning"],
                 source_path=Path(row["source_path"]) if row["source_path"] else None,
                 target_path=Path(row["target_path"]) if row["target_path"] else None,
-                owner_user_id=row["owner_user_id"],
                 user_prompt=row["user_prompt"],
-                estimated_tokens=row["estimated_tokens"],
-                price_cents=row["price_cents"],
-                currency=row["currency"],
-                stripe_checkout_session_id=row["stripe_checkout_session_id"],
-                stripe_payment_status=row["stripe_payment_status"],
             )
             self._jobs[job.id] = job
             if status != row["status"]:
@@ -130,7 +113,6 @@ class JobManager:
         target_language: str,
         submit_kind: str,
         concurrency: int,
-        owner_user_id: Optional[str] = None,
         user_prompt: Optional[str] = None,
     ) -> JobState:
         job_id = uuid.uuid4().hex
@@ -142,7 +124,6 @@ class JobManager:
             concurrency=concurrency,
             source_path=self.upload_dir / f"{job_id}.epub",
             target_path=self.output_dir / f"{job_id}.epub",
-            owner_user_id=owner_user_id,
             user_prompt=user_prompt,
         )
         self._jobs[job.id] = job
@@ -151,9 +132,6 @@ class JobManager:
 
     def get(self, job_id: str) -> Optional[JobState]:
         return self._jobs.get(job_id)
-
-    def list(self) -> list[JobState]:
-        return list(self._jobs.values())
 
     def subscribe(self, job: JobState) -> "asyncio.Queue[dict]":
         queue: "asyncio.Queue[dict]" = asyncio.Queue()
@@ -188,13 +166,7 @@ class JobManager:
                 "warning": job.last_warning,
                 "source_path": str(job.source_path) if job.source_path else None,
                 "target_path": str(job.target_path) if job.target_path else None,
-                "owner_user_id": job.owner_user_id,
                 "user_prompt": job.user_prompt,
-                "estimated_tokens": job.estimated_tokens,
-                "price_cents": job.price_cents,
-                "currency": job.currency,
-                "stripe_checkout_session_id": job.stripe_checkout_session_id,
-                "stripe_payment_status": job.stripe_payment_status,
             }
         self._store.upsert(row)
 
@@ -216,30 +188,6 @@ class JobManager:
             self._run, job, target_language, concurrency, user_prompt, submit_kind
         )
 
-    def mark_awaiting_payment(
-        self,
-        job: JobState,
-        estimated_tokens: int,
-        price_cents: int,
-        currency: str,
-    ) -> None:
-        with job.lock:
-            job.status = "awaiting_payment"
-            job.estimated_tokens = estimated_tokens
-            job.price_cents = price_cents
-            job.currency = currency
-        self._publish(job)
-
-    def set_stripe_checkout_session(self, job: JobState, stripe_checkout_session_id: str) -> None:
-        with job.lock:
-            job.stripe_checkout_session_id = stripe_checkout_session_id
-        self._publish(job)
-
-    def mark_paid(self, job: JobState) -> None:
-        with job.lock:
-            job.stripe_payment_status = "paid"
-        self._publish(job)
-
     def cancel(self, job: JobState) -> Optional[str]:
         """Request cancellation of a job and discard any work done so far.
 
@@ -252,11 +200,7 @@ class JobManager:
             job.cancel_event.set()
             status_before_cancel = job.status
 
-        if status_before_cancel == "awaiting_payment":
-            # Never reached the executor (no future was ever created), so
-            # there's nothing to interrupt: it can be cancelled outright.
-            stopped_before_start = True
-        elif status_before_cancel == "queued":
+        if status_before_cancel == "queued":
             stopped_before_start = job.future is not None and job.future.cancel()
         else:
             stopped_before_start = False

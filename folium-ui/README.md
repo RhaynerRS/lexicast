@@ -20,6 +20,15 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Desktop app (Tauri)
+
+The `src-tauri/` directory wraps this app as a desktop build with [Tauri](https://tauri.app). It builds the Next.js static export (`npm run build` → `out/`) and loads it as the app's frontend.
+
+```bash
+npm run tauri dev    # launch the desktop app
+npm run tauri build  # produce a distributable bundle
+```
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

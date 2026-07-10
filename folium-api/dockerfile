@@ -6,10 +6,10 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     STORAGE_DIR=/data
 
-COPY python-api/requirements.txt .
+COPY folium-api/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY python-api/app ./app
+COPY folium-api/app ./app
 
 RUN mkdir -p /data && \
     useradd --create-home --shell /bin/bash appuser && \

@@ -10,17 +10,87 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-folium-black: #0b0b0f;
+  --color-folium-paper: #f5f5f7;
+  --color-folium-ink: #1d1d1f;
+  --color-folium-purple: #1b1930;
+  --color-folium-blue: #0a84ff;
+  --color-folium-indigo: #5e5ce6;
+  --color-folium-green: #34c759;
+  --color-folium-red: #ff3b30;
+  --color-folium-gray: #8e8e93;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Helvetica, Arial, sans-serif;
+}
+
+@keyframes pulse-dot {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.4;
+    transform: scale(0.7);
+  }
+}
+
+@keyframes float-a {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-6deg);
+  }
+  50% {
+    transform: translateY(-16px) rotate(-4deg);
+  }
+}
+
+@keyframes float-b {
+  0%,
+  100% {
+    transform: translateY(0) rotate(4deg);
+  }
+  50% {
+    transform: translateY(-22px) rotate(6deg);
+  }
+}
+
+@keyframes float-c {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-2deg);
+  }
+  50% {
+    transform: translateY(-10px) rotate(-1deg);
+  }
+}
+
+.animate-pulse-dot {
+  animation: pulse-dot 1.4s ease-in-out infinite;
+}
+.animate-float-a {
+  animation: float-a 7s ease-in-out infinite;
+}
+.animate-float-b {
+  animation: float-b 8s ease-in-out infinite;
+}
+.animate-float-c {
+  animation: float-c 9s ease-in-out infinite;
+}
+
+/* Decorative preview cards in the hero: only worth showing when the window
+   has enough width *and* height to fit them without forcing a scroll. */
+.hero-preview {
+  display: none;
+}
+@media (min-width: 1024px) and (min-height: 700px) {
+  .hero-preview {
+    display: block;
+  }
 }

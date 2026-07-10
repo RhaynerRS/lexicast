@@ -13,6 +13,15 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
   ]),
+  {
+    // Vendored from the uilayouts registry (npx uilayouts add liquid-glass) —
+    // kept verbatim so it stays in sync with upstream, not held to our lint rules.
+    files: ["components/ui/liquid-glass.tsx"],
+    rules: {
+      "@typescript-eslint/ban-ts-comment": "off",
+      "@typescript-eslint/no-explicit-any": "off",
+    },
+  },
 ]);
 
 export default eslintConfig;

@@ -19,7 +19,7 @@
 ## Getting Started
 
 ```bash
-cp python-api/.env.example python-api/.env   # optional, only for local (non-compose) runs
+cp folium-api/.env.example folium-api/.env   # optional, only for local (non-compose) runs
 docker compose up -d
 ```
 
@@ -38,7 +38,7 @@ On startup, the `ollama` container automatically pulls `qwen2.5:3b-instruct-q4_K
 # Start Ollama only
 docker compose up ollama -d
 
-cd python-api
+cd folium-api
 pip install -r requirements.txt
 export OLLAMA_BASE_URL=http://localhost:11434/v1
 uvicorn app.main:app --reload
@@ -56,7 +56,7 @@ Point the app at the API URL (default `http://localhost:8000`) on the upload scr
 ## Building
 
 ```bash
-docker build -f python-api/dockerfile -t lexicast-api .
+docker build -f folium-api/dockerfile -t lexicast-api .
 ```
 
 ```bash
@@ -73,7 +73,7 @@ dotnet build LexicastUi/LexicastUi.csproj
 
 | Component | Type | Responsibility |
 |-----------|------|----------------|
-| `python-api` | FastAPI service | Accepts EPUB uploads, runs `epub-translator` jobs against Ollama, exposes progress + download |
+| `folium-api` | FastAPI service | Accepts EPUB uploads, runs `epub-translator` jobs against Ollama, exposes progress + download |
 | `LexicastUi` | Avalonia desktop app (.NET 10) | Pick an `.epub`, configure target language/prompt, track progress, download the translated file — runs on Windows, Linux and macOS |
 | `ollama` | Ollama container | Serves the local LLM (Qwen3 by default) via an OpenAI-compatible endpoint |
 
@@ -102,7 +102,7 @@ Translation jobs run in-process on a thread pool (`JOB_WORKERS`) inside the API 
 
 ## Configuration
 
-`python-api/.env.example`:
+`folium-api/.env.example`:
 
 ```env
 LLM_PROVIDER=openai
